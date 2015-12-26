@@ -1,1 +1,4 @@
 SpectralSlicer
+==============
+
+Work in progress..
