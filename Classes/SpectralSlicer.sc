@@ -140,4 +140,80 @@ SpectralSlicer {
             synths.do(_.free);
         }
     }
+
+    // Caution: Calling this method may suspend the client while sending the
+    // synthdef to the server due to the large processing graph.
+    //
+    // TODO: Remove redundant code duplication
+    *ar {|sig, crossovers, fftSize=2048|
+        var bands, numChannels, endBins;
+        var fromBin = 0; // start from DC
+
+        numChannels = sig.size;
+        endBins = SpectralSlicer.calcPartitions(crossovers, fftSize);
+
+        bands = endBins.collect {|toBin, bandIdx|
+            var fadeInBins, fadeOutBins;
+            var chain, fftBuf;
+
+            // first band
+            if(bandIdx == 0) {
+                fadeInBins  = 0;
+                fadeOutBins = endBins[bandIdx + 1] div: 2;
+            };
+
+            // last band
+            if(bandIdx == (endBins.size - 1)) {
+                fadeInBins  = endBins[bandIdx - 1] div: 2;
+                fadeOutBins = 0;
+            };
+
+            // n bands
+            if(bandIdx != 0 and:{bandIdx != (endBins.size - 1)}) {
+                fadeInBins  = endBins[bandIdx - 1] div: 2;
+                fadeOutBins = endBins[bandIdx + 1] div: 2;
+            };
+
+            if(numChannels > 1) {
+                fftBuf = { LocalBuf(fftSize) }.dup(numChannels);
+            } {
+                fftBuf = LocalBuf(fftSize);
+            };
+
+            chain = FFT(fftBuf, sig);
+            chain = chain.collect {|monoChain|
+                // indicies for fade in/out curves
+                var fadeInIdx = 0, fadeOutIdx = 0;
+
+                monoChain.pvcollect(
+                    fftSize,
+                    {|mag, phase, binIdx, idx|
+                        // fade in
+                        if(binIdx < fromBin) {
+                            mag = mag * sin((fadeInIdx / (fadeInBins - 1)) * 0.5pi).sqrt;
+                            fadeInIdx = fadeInIdx + 1;
+                        };
+
+                        // fade out
+                        // TODO: start fade out from last bin instead? (>=)
+                        if(binIdx > toBin) {
+                            mag = mag * cos((fadeOutIdx / (fadeOutBins - 1)) * 0.5pi).sqrt;
+                            fadeOutIdx = fadeOutIdx + 1;
+                        };
+
+                        [mag, phase];
+                    },
+                    frombin:    fromBin - fadeInBins,
+                    tobin:      toBin   + fadeOutBins,
+                    zeroothers: 1
+                );
+            };
+
+            fromBin = toBin;
+
+            IFFT(chain);
+        };
+
+        ^bands;
+    }
 }
