@@ -15,30 +15,57 @@ SpectralSlicer {
         this.makeSynthDefs;
     }
 
-    makeSynthDefs {
-        var toBin, fromBin = 0; // start from DC
+    calcPartitions {
+        var toBin = 0, fromBin = 0; // start from DC
 
         var numBins = fftSize div: 2;
         var binRes  = Server.default.sampleRate / fftSize;
 
-        numBands.do {|i|
-            // get the partitions
-            if(i < (numBands - 1)) {
-                toBin = block {|break|
-                    numBins.do {|binIdx|
-                        var freq = binRes * binIdx;
+        // get the partitions
+        var endBins = crossovers.collect {|xfreq|
+            toBin = block {|break|
+                numBins.do {|binIdx|
+                    var freq = binRes * binIdx;
 
-                        if(freq >= crossovers[i]) {
-                            break.(binIdx);
-                        }
-                    };
+                    if(freq >= xfreq) {
+                        break.(binIdx);
+                    }
                 };
-            } {
-                // last partiation, last crossover -> full sr
-                toBin = numBins;
+            };
+        };
+
+        // last end point is the full spectrum
+        endBins = endBins ++ numBins;
+
+        ^endBins;
+    }
+
+    makeSynthDefs {
+        var fromBin = 0; // start from DC
+        var endBins, fadeInBins, fadeOutBins;
+
+        endBins = this.calcPartitions;
+
+        endBins.do {|toBin, bandIdx|
+            // first band
+            if(bandIdx == 0) {
+                fadeInBins  = 0;
+                fadeOutBins = endBins[bandIdx + 1] div: 2;
             };
 
-            SynthDef(defname.format(i).asSymbol, {
+            // last band
+            if(bandIdx == (endBins.size - 1)) {
+                fadeInBins  = endBins[bandIdx - 1] div: 2;
+                fadeOutBins = 0;
+            };
+
+            // n bands
+            if(bandIdx != 0 and:{bandIdx != (endBins.size - 1)}) {
+                fadeInBins  = endBins[bandIdx - 1] div: 2;
+                fadeOutBins = endBins[bandIdx + 1] div: 2;
+            };
+
+            SynthDef(defname.format(bandIdx).asSymbol, {
                 |
                     amp  = 1,
                     out  = 0,
@@ -56,11 +83,29 @@ SpectralSlicer {
 
                 chain = FFT(fftBuf, sig);
                 chain = chain.collect {|monoChain|
+                    // indicies for fade in/out curves
+                    var fadeInIdx = 0, fadeOutIdx = 0;
+
                     monoChain.pvcollect(
                         fftSize,
-                        {|mag, phase, binIdx| [mag, phase] }, // unaltered
-                        frombin:    fromBin,
-                        tobin:      toBin,
+                        {|mag, phase, binIdx, idx|
+                            // fade in
+                            if(binIdx < fromBin) {
+                                mag = mag * sin((fadeInIdx / (fadeInBins - 1)) * 0.5pi).sqrt;
+                                fadeInIdx = fadeInIdx + 1;
+                            };
+
+                            // fade out
+                            // TODO: start fade out from last bin instead? (>=)
+                            if(binIdx > toBin) {
+                                mag = mag * cos((fadeOutIdx / (fadeOutBins - 1)) * 0.5pi).sqrt;
+                                fadeOutIdx = fadeOutIdx + 1;
+                            };
+
+                            [mag, phase];
+                        },
+                        frombin:    fromBin - fadeInBins,
+                        tobin:      toBin   + fadeOutBins,
                         zeroothers: 1
                     );
                 };
