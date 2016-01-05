@@ -15,7 +15,7 @@ SpectralSlicer {
         this.makeSynthDefs;
     }
 
-    calcPartitions {
+    *calcPartitions {|crossovers, fftSize|
         var toBin = 0, fromBin = 0; // start from DC
 
         var numBins = fftSize div: 2;
@@ -44,7 +44,7 @@ SpectralSlicer {
         var fromBin = 0; // start from DC
         var endBins, fadeInBins, fadeOutBins;
 
-        endBins = this.calcPartitions;
+        endBins = SpectralSlicer.calcPartitions(crossovers, fftSize);
 
         endBins.do {|toBin, bandIdx|
             // first band
