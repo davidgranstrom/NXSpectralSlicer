@@ -49,7 +49,7 @@ NXSpectralSlicer {
             fadeInBins  = fadeInBins.floor.asInteger;
             fadeOutBins = fadeOutBins.floor.asInteger;
 
-            fftBuf = { LocalBuf(fftSize) }.dup(sig.numChannels);
+            fftBuf = { LocalBuf(fftSize).clear }.dup(sig.numChannels);
             chain  = FFT(fftBuf, sig);
 
             chain = chain.collect {|monoChain|
