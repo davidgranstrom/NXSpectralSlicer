@@ -1,12 +1,14 @@
 SpectralSlicer {
-    // Caution: Calling this method may suspend the client while sending the
-    // synthdef to the server due to the large processing graph.
-    //
-    *ar {|sig, crossovers, fftSize=2048, q=1|
+
+    *ar {|sig, crossovers, fftSize=4096, q=1|
         var fromBin      = 0; // start from DC
-        var overlapSize  = 4;
         var numChannels  = sig.size;
+
         var endPointBins = SpectralSlicer.calcEndPointBins(crossovers ? [ 92, 4522, 11071 ], fftSize);
+        var binRes       = Server.default.sampleRate / fftSize;
+
+        var fadeOutMult  = 1.15;
+        var fadeInMult   = 0.85;
 
         // return array of bands
         ^endPointBins.collect {|toBin, bandIdx|
@@ -16,27 +18,23 @@ SpectralSlicer {
             // first band
             if(bandIdx == 0) {
                 fadeInBins  = 0;
-                // fadeOutBins = endPointBins[bandIdx + 1] div: overlapSize;
-                fadeOutBins = toBin * 1.25;
+                fadeOutBins = toBin * fadeOutMult;
             };
 
             // last band
             if(bandIdx == (endPointBins.size - 1)) {
-                // fadeInBins  = endPointBins[bandIdx - 1] div: overlapSize;
-                fadeInBins  = fromBin * 0.25;
+                fadeInBins  = fromBin * fadeInMult;
                 fadeOutBins = 0;
             };
 
             // n bands
             if(bandIdx != 0 and:{bandIdx != (endPointBins.size - 1)}) {
-                // fadeInBins  = endPointBins[bandIdx - 1] div: overlapSize;
-                // fadeOutBins = endPointBins[bandIdx + 1] div: overlapSize;
-                fadeInBins  = fromBin * 0.25;
-                fadeOutBins = toBin * 1.25;
+                fadeInBins  = fromBin * fadeInMult;
+                fadeOutBins = toBin * fadeOutMult;
             };
 
-            fadeInBins  = fadeInBins.round.asInteger;
-            fadeOutBins = fadeOutBins.round.asInteger;
+            fadeInBins  = fadeInBins.floor.asInteger;
+            fadeOutBins = fadeOutBins.floor.asInteger;
 
             if(numChannels > 1) {
                 fftBuf = { LocalBuf(fftSize) }.dup(numChannels);
@@ -44,14 +42,8 @@ SpectralSlicer {
                 fftBuf = LocalBuf(fftSize);
             };
 
-            // fadeInBins.debug("fadeInBins" + bandIdx);
-            // fadeOutBins.debug("fadeOutBins" + bandIdx);
-            // (fadeInBins * (Server.default.sampleRate / fftSize)).debug("fadeInFreq" + bandIdx);
-            // (fadeOutBins * (Server.default.sampleRate / fftSize)).debug("fadeOutFreq" + bandIdx);
-
             chain = FFT(fftBuf, sig);
             chain = chain.collect {|monoChain|
-                // indicies for fade in/out curves
                 var fadeInIdx = 0, fadeOutIdx = 0;
 
                 monoChain.pvcollect(
@@ -64,7 +56,6 @@ SpectralSlicer {
                         };
 
                         // fade out
-                        // TODO: start fade out from last bin instead? (>=)
                         if(binIdx > toBin) {
                             mag = mag * (cos((fadeOutIdx / (fadeOutBins - 1)) * 0.5pi).sqrt ** q);
                             fadeOutIdx = fadeOutIdx + 1;
@@ -78,6 +69,7 @@ SpectralSlicer {
                 );
             };
 
+            // start next iteration from last bin
             fromBin = toBin;
 
             IFFT(chain);
