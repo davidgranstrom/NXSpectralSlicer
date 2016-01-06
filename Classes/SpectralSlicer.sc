@@ -15,14 +15,14 @@ SpectralSlicer {
         this.makeSynthDefs;
     }
 
-    *calcPartitions {|crossovers, fftSize|
+    *calcEndPointBins {|crossovers, fftSize|
         var toBin = 0, fromBin = 0; // start from DC
 
         var numBins = fftSize div: 2;
         var binRes  = Server.default.sampleRate / fftSize;
 
         // get the partitions
-        var endBins = crossovers.collect {|xfreq|
+        var endPointBins = crossovers.collect {|xfreq|
             toBin = block {|break|
                 numBins.do {|binIdx|
                     var freq = binRes * binIdx;
@@ -35,34 +35,35 @@ SpectralSlicer {
         };
 
         // last end point is the full spectrum
-        endBins = endBins ++ numBins;
+        endPointBins = endPointBins ++ numBins;
 
-        ^endBins;
+        ^endPointBins;
     }
 
     makeSynthDefs {
-        var fromBin = 0; // start from DC
-        var endBins, fadeInBins, fadeOutBins;
+        var fadeInBins, fadeOutBins;
 
-        endBins = SpectralSlicer.calcPartitions(crossovers, fftSize);
+        var fromBin      = 0; // start from DC
+        var overlapSize  = 4;
+        var endPointBins = SpectralSlicer.calcEndPointBins(crossovers, fftSize);
 
-        endBins.do {|toBin, bandIdx|
+        endPointBins.do {|toBin, bandIdx|
             // first band
             if(bandIdx == 0) {
                 fadeInBins  = 0;
-                fadeOutBins = endBins[bandIdx + 1] div: 2;
+                fadeOutBins = endPointBins[bandIdx + 1] div: overlapSize;
             };
 
             // last band
-            if(bandIdx == (endBins.size - 1)) {
-                fadeInBins  = endBins[bandIdx - 1] div: 2;
+            if(bandIdx == (endPointBins.size - 1)) {
+                fadeInBins  = endPointBins[bandIdx - 1] div: overlapSize;
                 fadeOutBins = 0;
             };
 
             // n bands
-            if(bandIdx != 0 and:{bandIdx != (endBins.size - 1)}) {
-                fadeInBins  = endBins[bandIdx - 1] div: 2;
-                fadeOutBins = endBins[bandIdx + 1] div: 2;
+            if(bandIdx != 0 and:{bandIdx != (endPointBins.size - 1)}) {
+                fadeInBins  = endPointBins[bandIdx - 1] div: overlapSize;
+                fadeOutBins = endPointBins[bandIdx + 1] div: overlapSize;
             };
 
             SynthDef(defname.format(bandIdx).asSymbol, {
@@ -146,32 +147,32 @@ SpectralSlicer {
     //
     // TODO: Remove redundant code duplication
     *ar {|sig, crossovers, fftSize=2048, q=1|
-        var bands, numChannels, endBins;
-        var fromBin = 0; // start from DC
+        var fromBin      = 0; // start from DC
+        var overlapSize  = 4;
+        var numChannels  = sig.size;
+        var endPointBins = SpectralSlicer.calcEndPointBins(crossovers, fftSize);
 
-        numChannels = sig.size;
-        endBins = SpectralSlicer.calcPartitions(crossovers, fftSize);
-
-        bands = endBins.collect {|toBin, bandIdx|
+        // return array of bands
+        ^endPointBins.collect {|toBin, bandIdx|
             var fadeInBins, fadeOutBins;
             var chain, fftBuf;
 
             // first band
             if(bandIdx == 0) {
                 fadeInBins  = 0;
-                fadeOutBins = endBins[bandIdx + 1] div: 2;
+                fadeOutBins = endPointBins[bandIdx + 1] div: overlapSize;
             };
 
             // last band
-            if(bandIdx == (endBins.size - 1)) {
-                fadeInBins  = endBins[bandIdx - 1] div: 2;
+            if(bandIdx == (endPointBins.size - 1)) {
+                fadeInBins  = endPointBins[bandIdx - 1] div: overlapSize;
                 fadeOutBins = 0;
             };
 
             // n bands
-            if(bandIdx != 0 and:{bandIdx != (endBins.size - 1)}) {
-                fadeInBins  = endBins[bandIdx - 1] div: 2;
-                fadeOutBins = endBins[bandIdx + 1] div: 2;
+            if(bandIdx != 0 and:{bandIdx != (endPointBins.size - 1)}) {
+                fadeInBins  = endPointBins[bandIdx - 1] div: overlapSize;
+                fadeOutBins = endPointBins[bandIdx + 1] div: overlapSize;
             };
 
             if(numChannels > 1) {
@@ -213,7 +214,5 @@ SpectralSlicer {
 
             IFFT(chain);
         };
-
-        ^bands;
     }
 }
