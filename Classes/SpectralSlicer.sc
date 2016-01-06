@@ -91,14 +91,14 @@ SpectralSlicer {
                         {|mag, phase, binIdx, idx|
                             // fade in
                             if(binIdx < fromBin) {
-                                mag = mag * sin((fadeInIdx / (fadeInBins - 1)) * 0.5pi).sqrt;
+                                mag = mag * (sin((fadeInIdx / (fadeInBins - 1)) * 0.5pi).sqrt ** q);
                                 fadeInIdx = fadeInIdx + 1;
                             };
 
                             // fade out
                             // TODO: start fade out from last bin instead? (>=)
                             if(binIdx > toBin) {
-                                mag = mag * cos((fadeOutIdx / (fadeOutBins - 1)) * 0.5pi).sqrt;
+                                mag = mag * (cos((fadeOutIdx / (fadeOutBins - 1)) * 0.5pi).sqrt ** q);
                                 fadeOutIdx = fadeOutIdx + 1;
                             };
 
@@ -145,7 +145,7 @@ SpectralSlicer {
     // synthdef to the server due to the large processing graph.
     //
     // TODO: Remove redundant code duplication
-    *ar {|sig, crossovers, fftSize=2048|
+    *ar {|sig, crossovers, fftSize=2048, q=1|
         var bands, numChannels, endBins;
         var fromBin = 0; // start from DC
 
@@ -190,14 +190,14 @@ SpectralSlicer {
                     {|mag, phase, binIdx, idx|
                         // fade in
                         if(binIdx < fromBin) {
-                            mag = mag * sin((fadeInIdx / (fadeInBins - 1)) * 0.5pi).sqrt;
+                            mag = mag * (sin((fadeInIdx / (fadeInBins - 1)) * 0.5pi).sqrt ** q);
                             fadeInIdx = fadeInIdx + 1;
                         };
 
                         // fade out
                         // TODO: start fade out from last bin instead? (>=)
                         if(binIdx > toBin) {
-                            mag = mag * cos((fadeOutIdx / (fadeOutBins - 1)) * 0.5pi).sqrt;
+                            mag = mag * (cos((fadeOutIdx / (fadeOutBins - 1)) * 0.5pi).sqrt ** q);
                             fadeOutIdx = fadeOutIdx + 1;
                         };
 
