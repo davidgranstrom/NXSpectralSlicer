@@ -1,11 +1,8 @@
 SpectralSlicer {
 
-    *ar {|sig, crossovers, fftSize=4096, q=1|
+    *ar {|sig, crossovers, fftSize=4096, q=1.0|
         var fromBin      = 0; // start from DC
-        var numChannels  = sig.size;
-
         var endPointBins = SpectralSlicer.calcEndPointBins(crossovers ? [ 92, 4522, 11071 ], fftSize);
-        var binRes       = Server.default.sampleRate / fftSize;
 
         var fadeOutMult  = 1.15;
         var fadeInMult   = 0.85;
@@ -36,13 +33,9 @@ SpectralSlicer {
             fadeInBins  = fadeInBins.floor.asInteger;
             fadeOutBins = fadeOutBins.floor.asInteger;
 
-            if(numChannels > 1) {
-                fftBuf = { LocalBuf(fftSize) }.dup(numChannels);
-            } {
-                fftBuf = LocalBuf(fftSize);
-            };
+            fftBuf = { LocalBuf(fftSize) }.dup(sig.numChannels);
+            chain  = FFT(fftBuf, sig);
 
-            chain = FFT(fftBuf, sig);
             chain = chain.collect {|monoChain|
                 var fadeInIdx = 0, fadeOutIdx = 0;
 
