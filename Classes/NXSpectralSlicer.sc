@@ -1,4 +1,10 @@
-SpectralSlicer {
+// ===========================================================================
+// Title         : NXSpectralSlicer
+// Description   : Splits a signal into multiple (frequency) bands
+// Copyright (c) : David Granström 2016
+// ===========================================================================
+
+NXSpectralSlicer {
 
     *ar {|sig, crossovers, fftSize=4096, q=1.0|
         var fromBin, endPointBins, fadeOutMult, fadeInMult;
@@ -12,7 +18,7 @@ SpectralSlicer {
         };
 
         fromBin      = 0; // start from DC
-        endPointBins = SpectralSlicer.calcEndPointBins(crossovers.sort ? [ 92, 4522, 11071 ], fftSize);
+        endPointBins = NXSpectralSlicer.calcEndPointBins(crossovers.sort ? [ 92, 4522, 11071 ], fftSize);
 
         fadeOutMult  = 1.15;
         fadeInMult   = 0.85;
