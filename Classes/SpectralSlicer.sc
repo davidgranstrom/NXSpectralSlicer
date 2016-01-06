@@ -1,11 +1,21 @@
 SpectralSlicer {
 
     *ar {|sig, crossovers, fftSize=4096, q=1.0|
-        var fromBin      = 0; // start from DC
-        var endPointBins = SpectralSlicer.calcEndPointBins(crossovers ? [ 92, 4522, 11071 ], fftSize);
+        var fromBin, endPointBins, fadeOutMult, fadeInMult;
 
-        var fadeOutMult  = 1.15;
-        var fadeInMult   = 0.85;
+        if(fftSize.isPowerOfTwo.not) {
+            "fftSize must be a power of two".throw;
+        };
+
+        if(q.isStrictlyPositive.not) {
+            "q must be positive".throw;
+        };
+
+        fromBin      = 0; // start from DC
+        endPointBins = SpectralSlicer.calcEndPointBins(crossovers.sort ? [ 92, 4522, 11071 ], fftSize);
+
+        fadeOutMult  = 1.15;
+        fadeInMult   = 0.85;
 
         // return array of bands
         ^endPointBins.collect {|toBin, bandIdx|
