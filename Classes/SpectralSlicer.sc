@@ -99,8 +99,6 @@ SpectralSlicer {
         };
 
         // last end point is the full spectrum
-        endPointBins = endPointBins ++ numBins;
-
-        ^endPointBins;
+        ^endPointBins ++ numBins;
     }
 }
